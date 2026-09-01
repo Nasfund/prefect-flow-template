@@ -94,5 +94,7 @@ against our self-hosted stack.
 | `scaffold/New-Flow.ps1` | Fills in the per-flow slug/repo/branch placeholders. |
 | `.env.example` | `PREFECT_API_URL` and the names of required secrets. |
 | `CONVENTIONS.md` | Naming, tags, schedules, retries, logging, secrets. |
+| `MIGRATING.md` | Steps to move an existing `C:\Prefect\<slug>` flow onto this template. |
 
 See [`CONVENTIONS.md`](./CONVENTIONS.md) for the team standards every flow should follow.
+Already have a flow running in `C:\Prefect\<slug>`? See [`MIGRATING.md`](./MIGRATING.md).
