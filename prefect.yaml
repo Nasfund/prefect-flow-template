@@ -1,0 +1,45 @@
+# prefect.yaml — standardized per-flow deployment
+# Self-hosted Prefect 3.7.x, process work pool `local-work-pool`, uv, one repo per flow.
+#
+# When you create a new flow, replace the values marked  EDIT  (or run
+# scaffold/New-Flow.ps1 to do it for you). The slug must match across:
+#   - this file's `name`
+#   - the C:\Prefect\<slug> folder the code is checked out into
+#   - the paths in job_variables (command / working_dir / env)
+name: nsf-example              # EDIT: flow slug == repo name == C:\Prefect\<slug>
+
+pull:
+  # 1) Ensure the checkout exists, force it to the latest commit, and sync the uv
+  #    environment. On Windows each line runs as a SEPARATE cmd.exe command, so
+  #    every line is self-contained and uses literal paths (no shell variables).
+  - prefect.deployments.steps.run_shell_script:
+      id: sync-flow
+      stream_output: true
+      script: |
+        if not exist "C:\Prefect\nsf-example\.git" git clone -b main https://github.com/our-org/nsf-example.git "C:\Prefect\nsf-example"
+        git -C "C:\Prefect\nsf-example" fetch --prune origin
+        git -C "C:\Prefect\nsf-example" reset --hard origin/main
+        uv sync --project "C:\Prefect\nsf-example" --frozen
+  # 2) Run from the checkout so `entrypoint` resolves and the .venv sits alongside.
+  - prefect.deployments.steps.set_working_directory:
+      directory: C:\Prefect\nsf-example
+
+deployments:
+  - name: nsf-example-scheduled       # EDIT: descriptive kebab-case (matches our convention)
+    entrypoint: flow.py:main          # EDIT: flow.py:<your_flow_function>
+    tags: [nsf, nsf-example]          # EDIT: team tag + flow slug
+    schedules:                        # EDIT: cron schedule(s), or set to [] for manual-only
+      - cron: "30 7 * * *"
+        timezone: "Pacific/Port_Moresby"
+    work_pool:
+      name: local-work-pool           # the process pool polled by the shawl-managed worker
+      job_variables:
+        # Force the flow to run in ITS OWN uv .venv → real per-flow dependency isolation.
+        # `command` override is the reliable lever: this pool's base job template has no
+        # `python_executable` variable, so a `python_executable` job var would be ignored.
+        command: "C:\\Prefect\\nsf-example\\.venv\\Scripts\\python.exe -m prefect.engine"
+        working_dir: "C:\\Prefect\\nsf-example"
+        # Activate the venv for any subprocess/tooling the flow shells out to.
+        env:
+          VIRTUAL_ENV: "C:\\Prefect\\nsf-example\\.venv"
+          PATH: "C:\\Prefect\\nsf-example\\.venv\\Scripts;${PATH}"

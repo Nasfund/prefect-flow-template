@@ -1,0 +1,9 @@
+# Per-flow virtual environment (recreated on the server by `uv sync`)
+.venv/
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+
+# Local environment / secrets (never commit real secrets — use Prefect blocks)
+.env

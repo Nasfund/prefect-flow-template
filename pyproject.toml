@@ -1,0 +1,14 @@
+[project]
+name = "nsf-example"            # EDIT: flow slug (== repo name)
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    # Keep Prefect aligned with the server (currently 3.7.x) to avoid engine mismatches.
+    "prefect>=3.7,<3.8",
+    "prefect-github>=0.4.2",    # only needed for the optional git_clone/credential-block fallback
+    # EDIT: add this flow's own dependencies below, then run `uv lock`.
+]
+
+[tool.uv]
+# uv manages this project's .venv and uv.lock. On the server, the pull step runs
+# `uv sync --frozen` so runs install exactly what's in uv.lock.
