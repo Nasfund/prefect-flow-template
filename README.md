@@ -70,12 +70,18 @@ against our self-hosted stack.
   vault and no prompt**. This is the only approach that works when the worker runs
   as a Windows **service (LocalSystem)**:
   `https://x-access-token:<PAT>@github.com/<org>/<slug>.git`
-  - *Fresh clone (declarative):* keep the PAT in a Secret block and let Prefect
-    render it into the clone URL at deploy time —
-    `https://x-access-token:{{ prefect.blocks.secret.github-pat }}@github.com/<org>/<slug>.git`.
-    Prefect renders it at deploy time (mirroring its own `git_clone`) and the token
-    persists in the checkout's `.git/config`. Create the block once with
-    `python setup_blocks.py` (needs `GITHUB_PAT`).
+  - *Fresh clone (declarative) — opt-in:* the shipped `prefect.yaml` clones with a
+    **plain** URL, so a genuinely fresh checkout (deleted folder / new-server
+    rebuild) would hang under LocalSystem unless you tokenize the clone line
+    yourself. To wire it up, replace that line's URL with the Secret-block form —
+    `https://x-access-token:{{ prefect.blocks.secret.github-pat }}@github.com/<org>/<slug>.git` —
+    which Prefect renders at deploy time (mirroring its own `git_clone`) so the token
+    lands in `.git/config` on clone. Create the block once with `python setup_blocks.py`
+    (needs `GITHUB_PAT`), and update `scaffold/New-Flow.ps1`'s repo-URL regex (it
+    won't match a tokenized URL). **By default the template does NOT do this** — a
+    new flow's unattended auth comes from the tokenized remote you set in
+    "Create a new flow" step 2 (the retrofit below); the pull step's clone-if-missing
+    only runs on a genuinely fresh folder.
   - *Existing checkout (retrofit):* set it directly, keeping the token out of shell
     history — `set /p GHPAT=` (Enter, paste the token, Enter) →
     `git -C C:\Prefect\<slug> remote set-url origin https://x-access-token:%GHPAT%@github.com/<org>/<slug>.git`
