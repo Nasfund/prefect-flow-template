@@ -12,6 +12,16 @@ pull:
   # 1) Ensure the checkout exists, force it to the latest commit, and sync the uv
   #    environment. On Windows each line runs as a SEPARATE cmd.exe command, so
   #    every line is self-contained and uses literal paths (no shell variables).
+  #
+  #    Git auth: the clone URL below is intentionally PLAIN (no token). Unattended
+  #    auth for the scheduled (LocalSystem) worker comes from the *tokenized remote*
+  #    you set once per checkout — see README "Create a new flow" step 2
+  #    (git remote set-url origin https://x-access-token:<PAT>@...), which persists
+  #    in .git/config so the `fetch`/`reset` below authenticate with no vault or
+  #    prompt. The clone-if-missing only runs on a genuinely fresh folder; to make
+  #    THAT clone authenticate too (deleted folder / new-server rebuild), tokenize
+  #    this clone URL with the github-pat Secret block — see README "Fresh clone
+  #    (declarative)" (also update scaffold/New-Flow.ps1's URL regex).
   - prefect.deployments.steps.run_shell_script:
       id: sync-flow
       stream_output: true
