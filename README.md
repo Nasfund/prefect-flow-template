@@ -35,6 +35,14 @@ against our self-hosted stack.
    git clone https://github.com/our-org/<flow-slug>.git C:\Prefect\<flow-slug>
    cd C:\Prefect\<flow-slug>
    ```
+   Then give **this checkout** non-interactive git auth so the scheduled worker
+   can pull it before every run: the LocalSystem service account has no credential
+   vault, so a plain clone URL makes the pull step hang/fail. Embed the PAT as the
+   password in the remote (see **One-time server setup** below for the token and
+   the `set /p` pattern that keeps it out of shell history):
+   ```cmd
+   git -C C:\Prefect\<flow-slug> remote set-url origin https://x-access-token:%GHPAT%@github.com/our-org/<flow-slug>.git
+   ```
 3. Fill in the per-flow values — either run the scaffolder:
    ```powershell
    .\scaffold\New-Flow.ps1 -Slug <flow-slug> `
