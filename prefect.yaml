@@ -5,7 +5,7 @@
 # scaffold/New-Flow.ps1 to do it for you). The slug must match across:
 #   - this file's `name`
 #   - the C:\Prefect\<slug> folder the code is checked out into
-#   - the paths in job_variables (command / working_dir / env)
+#   - the paths in job_variables (command / working_dir)
 name: nsf-example              # EDIT: flow slug == repo name == C:\Prefect\<slug>
 
 pull:
@@ -39,7 +39,9 @@ deployments:
         # `python_executable` variable, so a `python_executable` job var would be ignored.
         command: "C:\\Prefect\\nsf-example\\.venv\\Scripts\\python.exe -m prefect.engine"
         working_dir: "C:\\Prefect\\nsf-example"
-        # Activate the venv for any subprocess/tooling the flow shells out to.
-        env:
-          VIRTUAL_ENV: "C:\\Prefect\\nsf-example\\.venv"
-          PATH: "C:\\Prefect\\nsf-example\\.venv\\Scripts;${PATH}"
+        # NOTE: do NOT set a `PATH` env job-variable here. Prefect's process worker merges this
+        # env over os.environ *literally* (no shell expansion), and `${PATH}` is POSIX syntax that
+        # Windows/Prefect never expands — so it REPLACES the inherited PATH with a broken literal
+        # and the pull step loses `git`/`uv` ("'git' is not recognized"). The per-flow venv is
+        # already enforced by the absolute python.exe in `command`, so inheriting the worker's full
+        # PATH is both sufficient and required (git + uv must stay on PATH for the pull step).

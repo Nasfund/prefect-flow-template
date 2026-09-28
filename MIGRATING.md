@@ -13,10 +13,16 @@ each flow git-backed code delivery + real per-flow dependency isolation.
 > your own.
 
 ## One-time server setup (once per server, not per flow)
-Set up non-interactive git auth for the worker so `git clone`/`git pull` run
-unattended: seed Git Credential Manager / `git config --global credential.helper`
-with your PAT. Ensure `git` and `uv` are on the worker user's `PATH`. No Prefect
-blocks required.
+Set up non-interactive git auth so `git clone`/`git fetch` run unattended even when
+the worker runs as a Windows service (LocalSystem). Embed a least-privilege PAT as
+the **password** in the checkout's `origin` remote URL — this authenticates from
+`.git/config` with no credential vault. On an existing checkout:
+`git -C C:\Prefect\<slug> remote set-url origin https://x-access-token:<PAT>@github.com/<org>/<slug>.git`
+(keep the token out of shell history — see the [README](./README.md) for the
+`set /p` pattern and the full rationale). Do **not** rely on a per-user credential
+helper / Git Credential Manager for a service worker — its vault is empty under
+LocalSystem and the first fetch hangs on a GCM popup. Ensure `git` and `uv` are on a
+machine-wide `PATH`.
 
 ## Steps (per flow)
 
@@ -44,7 +50,7 @@ values to match the **existing** deployment so it updates in place (no duplicate
 | `entrypoint:` | your real function, e.g. `flow.py:text_balance_flow` (not `main`) |
 | deployment `name:` | the **existing** deployment name, e.g. `nsf-text-balance-refresh-daily` |
 | `schedules:` | your current cron(s) + `timezone: Pacific/Port_Moresby` |
-| `job_variables` command / working_dir / env | the `C:\Prefect\<slug>\.venv` paths |
+| `job_variables` command / working_dir | the `C:\Prefect\<slug>\.venv` paths |
 
 ### 3. Build a proper per-flow venv with ALL dependencies
 This is the biggest migration step, since existing flows often relied on the

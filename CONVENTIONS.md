@@ -11,7 +11,7 @@ stay consistent and predictable.
   - the server checkout `C:\Prefect\<slug>`,
   - `name:` in `prefect.yaml`,
   - the `@flow(name=...)` in `flow.py`,
-  - the paths in `job_variables` (`command`, `working_dir`, `env`).
+  - the paths in `job_variables` (`command`, `working_dir`).
 - **Deployment name** — descriptive kebab-case that hints at cadence, matching
   our existing flows: `<slug>-scheduled`, `<slug>-daily`, `<slug>-backfill`.
 - **Work pool** — `local-work-pool` (process). Only introduce another pool for a

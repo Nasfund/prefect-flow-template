@@ -17,8 +17,10 @@ against our self-hosted stack.
 - **Each flow runs in its own `.venv`.** The deployment overrides the process
   pool's **`command`** job variable to launch the flow with
   `C:\Prefect\<slug>\.venv\Scripts\python.exe` — real per-flow dependency
-  isolation on a single worker. (`working_dir` + `env` activate the venv for any
-  subprocess tooling.)
+  isolation on a single worker. (The absolute interpreter in `command` is enough;
+  do **not** add a `PATH` env job-variable to "activate" the venv — Prefect merges
+  job-var `env` over `os.environ` *literally*, so a POSIX `${PATH}` never expands
+  and clobbers the inherited PATH, breaking the pull step's `git`/`uv`.)
 
 > **Why `command` and not `python_executable`?** Our `local-work-pool` base job
 > template exposes only `env, name, labels, command, working_dir, stream_output`.
@@ -52,16 +54,35 @@ against our self-hosted stack.
 
 ## One-time server setup (per server, not per flow)
 
-- **`git` and `uv`** installed and on the worker user's `PATH`.
-- **Git auth (non-interactive)** — recommended: seed Git Credential Manager /
-  `git config --global credential.helper` with the PAT once, so `git clone` and
-  `git fetch` run unattended for every flow. No Prefect blocks required.
-  - *Fallback (no server git config):* embed the token via a Secret block in the
-    clone URL in `prefect.yaml`, e.g.
-    `https://x-access-token:{{ prefect.blocks.secret.github-pat }}@github.com/our-org/<slug>.git`.
-    Prefect renders it at deploy time (mirroring its own `git_clone`). The token
-    then persists in the checkout's `.git/config`. Create the block once with
+- **`git` and `uv`** installed and on a **machine-wide** `PATH` — not just one
+  user's profile, since the worker may run as a service account (LocalSystem).
+- **Git auth (non-interactive, account-independent) — recommended:** embed a
+  least-privilege PAT as the **password** in the checkout's `origin` remote URL, so
+  `git fetch`/`reset` authenticate straight from `.git/config` with **no credential
+  vault and no prompt**. This is the only approach that works when the worker runs
+  as a Windows **service (LocalSystem)**:
+  `https://x-access-token:<PAT>@github.com/<org>/<slug>.git`
+  - *Fresh clone (declarative):* keep the PAT in a Secret block and let Prefect
+    render it into the clone URL at deploy time —
+    `https://x-access-token:{{ prefect.blocks.secret.github-pat }}@github.com/<org>/<slug>.git`.
+    Prefect renders it at deploy time (mirroring its own `git_clone`) and the token
+    persists in the checkout's `.git/config`. Create the block once with
     `python setup_blocks.py` (needs `GITHUB_PAT`).
+  - *Existing checkout (retrofit):* set it directly, keeping the token out of shell
+    history — `set /p GHPAT=` (Enter, paste the token, Enter) →
+    `git -C C:\Prefect\<slug> remote set-url origin https://x-access-token:%GHPAT%@github.com/<org>/<slug>.git`
+    → `set GHPAT=`. (Don't run `git remote -v` — it prints the token.)
+  - The fine-grained PAT needs **Contents: Read**. **Token-as-username**
+    (`https://<PAT>@github.com/...`, no password) does **not** work: git then asks a
+    credential helper for the missing password and pops **Git Credential Manager**,
+    which hangs forever in a service's non-interactive Session 0.
+  - **Do NOT rely on a per-user credential helper** (`git config --global
+    credential.helper` / seeded Git Credential Manager) for a service worker — its
+    vault is per-user and empty under LocalSystem, so the first `git fetch` hangs on
+    a GCM popup no one can answer.
+  - **Fail fast, never hang:** run the worker service with `GIT_TERMINAL_PROMPT=0`
+    and `GCM_INTERACTIVE=never` in its environment so a missing/expired token errors
+    out instead of blocking on a prompt.
 - **Work pool** `local-work-pool` already exists (process) and the shawl-managed
   worker polls it. To recreate on a new server:
   ```powershell
@@ -90,7 +111,7 @@ against our self-hosted stack.
 | `flow.py` | Example flow (`main` entrypoint); replace with your logic. |
 | `prefect.yaml` | Standardized deployment: pull-latest step + per-flow `.venv` `command` override. |
 | `pyproject.toml` / `uv.lock` | uv project + pinned dependencies (`prefect>=3.7,<3.8`). |
-| `setup_blocks.py` | One-time creation of the `github-pat` / GitHub credentials blocks (fallback auth only). |
+| `setup_blocks.py` | One-time creation of the `github-pat` / GitHub credentials blocks (for the declarative inline-token git auth). |
 | `scaffold/New-Flow.ps1` | Fills in the per-flow slug/repo/branch placeholders. |
 | `.env.example` | `PREFECT_API_URL` and the names of required secrets. |
 | `CONVENTIONS.md` | Naming, tags, schedules, retries, logging, secrets. |
