@@ -13,6 +13,10 @@ pull:
   #    environment. On Windows each line runs as a SEPARATE cmd.exe command, so
   #    every line is self-contained and uses literal paths (no shell variables).
   #
+  #    `--no-dev` keeps the production .venv test-free: uv syncs the `dev` dependency
+  #    group BY DEFAULT, so without it every run would install pytest & friends from
+  #    pyproject.toml's [dependency-groups] into C:\Prefect\<slug>\.venv.
+  #
   #    Git auth: the clone URL below is intentionally PLAIN (no token). Unattended
   #    auth for the scheduled (LocalSystem) worker comes from the *tokenized remote*
   #    you set once per checkout — see README "Create a new flow" step 2
@@ -29,7 +33,7 @@ pull:
         if not exist "C:\Prefect\nsf-example\.git" git clone -b main https://github.com/our-org/nsf-example.git "C:\Prefect\nsf-example"
         git -C "C:\Prefect\nsf-example" fetch --prune origin
         git -C "C:\Prefect\nsf-example" reset --hard origin/main
-        uv sync --project "C:\Prefect\nsf-example" --frozen
+        uv sync --project "C:\Prefect\nsf-example" --frozen --no-dev
   # 2) Run from the checkout so `entrypoint` resolves and the .venv sits alongside.
   - prefect.deployments.steps.set_working_directory:
       directory: C:\Prefect\nsf-example

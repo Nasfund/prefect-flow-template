@@ -65,14 +65,49 @@ git commit -m "Pin dependencies"
 git push
 ```
 
-### 4. Re-deploy (updates the existing deployment in place)
+> **Note the `--no-dev`.** The template's pull step runs
+> `uv sync --project "C:\Prefect\<slug>" --frozen --no-dev`. Copy it verbatim: uv
+> syncs the `dev` dependency group *by default*, so dropping the flag installs the
+> test tooling into the production `.venv` on every run.
+
+### 4. Retrofit the spec and tests
+
+The migrated flow works at this point, but nothing describes or protects it. Before
+you change any of its logic:
+
+1. **Write a spec describing what the flow does *today*.** Copy
+   `scaffold/spec-templates/` into `.kiro/specs/<slug>/` and fill it in from the
+   existing code — source, destination, schedule, failure behaviour. This is the
+   moment you discover which parts nobody understands any more. Don't fix them yet;
+   just write them down. Kiro can read the existing `flow.py` and draft it with you.
+2. **Copy `tests/` from the template** and run `uv run pytest`. The config suite
+   should pass immediately if step 2's `prefect.yaml` edits were complete — and if it
+   doesn't, it's telling you the slug is inconsistent somewhere, which is exactly the
+   thing that breaks deployments.
+3. **Add characterization tests** to `tests/test_flow.py`: tests that assert the
+   flow's *current* behaviour, with the I/O boundary stubbed. They're your safety net.
+   Migrating and refactoring at the same time, with no tests, is how a working flow
+   becomes a broken one.
+4. **Add `[dependency-groups] dev = ["pytest>=8,<9", "pyyaml>=6"]`** to
+   `pyproject.toml`, plus `[tool.pytest.ini_options]` with `testpaths = ["tests"]` and
+   `pythonpath = ["."]`. Then `uv lock` and commit.
+5. **Copy `.kiro/steering/`** so Kiro has the project knowledge in this repo too.
+
+Only once the suite is green should you start improving the flow.
+
+### 5. Re-deploy (updates the existing deployment in place)
 ```powershell
 $env:PREFECT_API_URL = "http://192.168.50.70:4200/api"
 prefect deploy
 ```
 
-### 5. Verify
-Trigger a **Quick run** from the deployment. In the logs, confirm:
+### 6. Verify
+Locally first: `uv run pytest` must be green, including
+`tests/test_deployment_config.py` — migrated flows are held to the same standard as
+new ones, and that suite is where a half-renamed slug or a missing schedule timezone
+shows up.
+
+Then trigger a **Quick run** from the deployment. In the logs, confirm:
 - the `sync-flow` pull step ran `git` + `uv sync`, and
 - the flow's interpreter is now `C:\Prefect\<slug>\.venv\Scripts\python.exe`
   (not the shared `C:\Prefect\.venv`).
@@ -89,5 +124,6 @@ Trigger a **Quick run** from the deployment. In the logs, confirm:
 
 ## New flows
 For brand-new flows, don't migrate — start from the template directly
-("Use this template" → clone to `C:\Prefect\<slug>` → `scaffold/New-Flow.ps1`).
-See the [README](./README.md).
+("Use this template" → clone to `C:\Prefect\<slug>` → `scaffold/New-Flow.ps1`), then
+build it spec-first with Kiro. See [Build a flow with Kiro](./README.md#build-a-flow-with-kiro)
+in the README.

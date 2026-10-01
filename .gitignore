@@ -5,5 +5,12 @@
 __pycache__/
 *.py[cod]
 
+# Test artifacts
+.pytest_cache/
+
+# NOTE: `.kiro/` is deliberately NOT ignored. Steering files and flow specs are
+# shared team assets and belong in git so every clone (and every Kiro session)
+# gets the same project knowledge.
+
 # Local environment / secrets (never commit real secrets — use Prefect blocks)
 .env
