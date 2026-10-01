@@ -34,7 +34,10 @@ def main() -> list[int]:
     logger.info("Running with interpreter: %s", sys.executable)
 
     records = extract()
-    results = transform.map(records)
+    # `.map()` returns futures; `.result()` resolves them to real values. Returning
+    # the futures directly would hand the caller a list of Prefect State objects
+    # instead of the `list[int]` this flow advertises.
+    results = transform.map(records).result()
     logger.info("Processed %d records", len(records))
     return results
 

@@ -9,6 +9,25 @@ dependencies = [
     # EDIT: add this flow's own dependencies below, then run `uv lock`.
 ]
 
+[dependency-groups]
+# Local-only test tooling. Never needed at runtime on the server, which is why the
+# pull step in prefect.yaml runs `uv sync --frozen --no-dev` (uv syncs the `dev`
+# group BY DEFAULT, so without --no-dev pytest would be installed into the
+# production .venv on every single flow run).
+dev = [
+    "pytest>=8,<9",
+    "pyyaml>=6",   # the config tests parse prefect.yaml (also a transitive Prefect dep)
+]
+
 [tool.uv]
 # uv manages this project's .venv and uv.lock. On the server, the pull step runs
-# `uv sync --frozen` so runs install exactly what's in uv.lock.
+# `uv sync --frozen --no-dev` so runs install exactly what's in uv.lock, minus the
+# test-only dev group.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Put the repo root on sys.path so tests can `import flow` (the entrypoint module
+# lives at the root, alongside prefect.yaml, exactly as the server runs it).
+pythonpath = ["."]
+# Quieter, more useful failure output for the whole team by default.
+addopts = "-ra"
